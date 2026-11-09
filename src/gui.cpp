@@ -103,6 +103,9 @@ void choose_process() {
 void filter_processes(bool preserveScroll = false) {
     const auto previous = target;
     const int top = preserveScroll ? ListView_GetTopIndex(processList) : 0;
+    const auto anchor = preserveScroll && top >= 0 && static_cast<size_t>(top) < visibleProcesses.size() ? visibleProcesses[top] : odl::Process{};
+    RECT itemBounds{};
+    const int rowHeight = ListView_GetItemRect(processList, 0, &itemBounds, LVIR_BOUNDS) && itemBounds.bottom > itemBounds.top ? itemBounds.bottom - itemBounds.top : ui::px(30);
     const auto query = lower(value(search));
     const bool same = SendMessageW(compatible, BM_GETCHECK, 0, 0) == BST_CHECKED;
     rebuilding = true; SendMessageW(processList, WM_SETREDRAW, FALSE, 0); ListView_DeleteAllItems(processList); visibleProcesses.clear();
@@ -120,7 +123,11 @@ void filter_processes(bool preserveScroll = false) {
     }
     SendMessageW(processList, WM_SETREDRAW, TRUE, 0); InvalidateRect(processList, nullptr, TRUE); rebuilding = false;
     if (previous.pid && !target.pid) { cooperative = hostActive = false; set_status(L"Select a process", ui::accent); }
-    if (top > 0 && !visibleProcesses.empty()) ListView_Scroll(processList, 0, ui::px(30) * std::min(top, static_cast<int>(visibleProcesses.size()) - 1));
+    if (top > 0 && !visibleProcesses.empty()) {
+        auto row = std::min(top, static_cast<int>(visibleProcesses.size()) - 1);
+        for (size_t i = 0; i < visibleProcesses.size(); ++i) if (visibleProcesses[i].pid == anchor.pid && visibleProcesses[i].created == anchor.created) { row = static_cast<int>(i); break; }
+        ListView_Scroll(processList, 0, rowHeight * row);
+    }
     update_actions();
 }
 void refresh() {
@@ -532,6 +539,17 @@ int ui_test(HWND hwnd, const std::filesystem::path& output) {
     for (int i = 0; i < static_cast<int>(visibleProcesses.size()); ++i) if (visibleProcesses[i].pid == preserved.pid) ListView_SetItemState(processList, i, LVIS_SELECTED, LVIS_SELECTED);
     SetWindowTextW(search, L"");
     require(!IsWindowEnabled(GetDlgItem(window, LOAD)));
+    const auto savedProcesses = allProcesses;
+    for (DWORD i = 0; i < 40; ++i) allProcesses.push_back({6000 + i, 10 + i, odl::own_machine(), L"ExampleWorker.exe", L"C:\\Examples\\ExampleWorker.exe"});
+    filter_processes(); RECT rowBounds{}; ListView_GetItemRect(processList, 0, &rowBounds, LVIR_BOUNDS);
+    ListView_Scroll(processList, 0, (rowBounds.bottom - rowBounds.top) * 10);
+    const int scrollTop = ListView_GetTopIndex(processList); require(scrollTop > 0);
+    const auto topProcess = visibleProcesses[scrollTop];
+    Snapshot inserted; inserted.selected = target; inserted.processes = allProcesses;
+    inserted.processes.insert(inserted.processes.begin(), {8000, 100, odl::own_machine(), L"EarlierProcess.exe", L"C:\\Examples\\EarlierProcess.exe"});
+    receive_snapshot(std::move(inserted));
+    require(visibleProcesses[ListView_GetTopIndex(processList)].pid == topProcess.pid);
+    allProcesses = savedProcesses; filter_processes();
     append_library({L"C:\\Examples\\Plugins\\ExamplePlugin.dll", std::wstring(64, L'a'), odl::own_machine(), {L"KERNEL32.dll"}});
     append_library({L"C:\\Examples\\Plugins\\DiagnosticsOverlay.dll", std::wstring(64, L'b'), odl::own_machine(), {L"USER32.dll"}});
     require(libraries.size() == 2 && checked_count() == 2 && IsWindowEnabled(GetDlgItem(window, LOAD)));
