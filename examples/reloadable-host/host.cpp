@@ -185,6 +185,7 @@ public:
 #ifdef _WIN32
 class ControlPipe {
     HANDLE pipe_ = INVALID_HANDLE_VALUE;
+    std::wstring name_ = L"\\\\.\\pipe\\OpenDllLoader.Host." + std::to_wstring(GetCurrentProcessId());
     bool connected_{};
     bool replied_{};
     ULONGLONG lastActivity_{};
@@ -192,22 +193,30 @@ class ControlPipe {
     void trace(const char* message) { if (trace_) log_line(message); }
     void disconnect() {
         trace("CONTROL disconnect"); DisconnectNamedPipe(pipe_); connected_ = replied_ = false;
-        DWORD mode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT; SetNamedPipeHandleState(pipe_, &mode, nullptr, nullptr);
+        CloseHandle(pipe_); pipe_ = INVALID_HANDLE_VALUE;
+    }
+    void create() {
+        pipe_ = CreateNamedPipeW(name_.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_NOWAIT | PIPE_REJECT_REMOTE_CLIENTS,
+            1, 1024, 1024, 0, nullptr);
     }
 public:
     ControlPipe() {
-        const auto name = L"\\\\.\\pipe\\OpenDllLoader.Host." + std::to_wstring(GetCurrentProcessId());
-        pipe_ = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
-            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_NOWAIT | PIPE_REJECT_REMOTE_CLIENTS,
-            1, 1024, 1024, 0, nullptr);
+        create();
         if (pipe_ == INVALID_HANDLE_VALUE) log_line("GUI control pipe unavailable; console commands and watch mode still work.");
     }
     ~ControlPipe() { if (pipe_ != INVALID_HANDLE_VALUE) CloseHandle(pipe_); }
     void poll(Host& host, bool& watch) {
         using namespace odl::control;
-        if (pipe_ == INVALID_HANDLE_VALUE) return;
+        // Use a fresh instance after each transaction. Some Wine versions
+        // keep a disconnected instance in a closing state until its peer exits.
+        if (pipe_ == INVALID_HANDLE_VALUE) { create(); if (pipe_ == INVALID_HANDLE_VALUE) return; }
         if (!connected_) {
-            if (!ConnectNamedPipe(pipe_, nullptr) && GetLastError() != ERROR_PIPE_CONNECTED) return;
+            if (!ConnectNamedPipe(pipe_, nullptr)) {
+                const auto error = GetLastError();
+                if (error == ERROR_NO_DATA) { disconnect(); return; }
+                if (error != ERROR_PIPE_CONNECTED) return;
+            }
             connected_ = true;
             lastActivity_ = GetTickCount64();
             trace("CONTROL connected");

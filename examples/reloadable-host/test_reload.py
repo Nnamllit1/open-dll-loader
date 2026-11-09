@@ -130,6 +130,7 @@ def main():
                 shutil.copyfile(args.v1, source)
                 time.sleep(0.8)
                 require("active=0" in client("--host-status"), "control-pipe unload pauses watch mode")
+                require(all("active=0" in client("--host-status") for _ in range(6)), "repeated host-control reconnections remain available")
             finally:
                 session.close()
         shutil.copyfile(args.v1, source)

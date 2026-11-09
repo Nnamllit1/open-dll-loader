@@ -14,9 +14,16 @@ HostReply host_command(const Process& expected, HostCommand command, DWORD timeo
     if (!expected.created || identity != expected.created || WaitForSingleObject(process.get(), 0) != WAIT_TIMEOUT)
         return fail(L"Host identity changed; refresh and select the process again.");
     const auto name = L"\\\\.\\pipe\\OpenDllLoader.Host." + std::to_wstring(expected.pid);
-    HANDLE raw = CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
-    if (raw == INVALID_HANDLE_VALUE && GetLastError() == ERROR_PIPE_BUSY && WaitNamedPipeW(name.c_str(), timeout_ms))
+    HANDLE raw = INVALID_HANDLE_VALUE;
+    const auto deadline = GetTickCount64() + timeout_ms;
+    for (;;) {
         raw = CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
+        if (raw != INVALID_HANDLE_VALUE) break;
+        const auto code = GetLastError();
+        if ((code != ERROR_PIPE_BUSY && code != ERROR_FILE_NOT_FOUND) || GetTickCount64() >= deadline) { SetLastError(code); break; }
+        if (code == ERROR_PIPE_BUSY) WaitNamedPipeW(name.c_str(), 25);
+        else Sleep(10);
+    }
     Handle pipe(raw);
     if (!pipe) {
         const auto code = GetLastError();
