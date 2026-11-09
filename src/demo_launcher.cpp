@@ -22,7 +22,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR args, int) {
         return ok;
     };
     // Both children inherit the exact same Wine/Proton environment and prefix.
-    if (!launch(host, L"\"" + host.wstring() + L"\" --plugin \"" + active.wstring() + L"\" --watch", CREATE_NEW_CONSOLE)) return 1;
+    if (!launch(host, L"\"" + host.wstring() + L"\" --plugin \"" + active.wstring() + L"\" --watch --no-console", CREATE_NEW_CONSOLE)) return 1;
     if (!launch(gui, L"\"" + gui.wstring() + L"\"", 0)) {
         MessageBoxW(nullptr, L"The example host started, but the loader could not start. Close the host console when finished.", L"Open DLL Loader demo", MB_ICONERROR); return 1;
     }

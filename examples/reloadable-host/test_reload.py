@@ -49,13 +49,19 @@ class Session:
 
     def close(self):
         try:
-            self.send("quit")
+            if self.process.poll() is None:
+                self.send("quit")
+            self.process.wait(timeout=5)
+        except BrokenPipeError:
             self.process.wait(timeout=5)
         finally:
             if self.process.poll() is None:
                 self.process.terminate()
                 self.process.wait(timeout=5)
-            self.process.stdin.close()
+            try:
+                self.process.stdin.close()
+            except BrokenPipeError:
+                pass
             self.reader.join(timeout=1)
             self.process.stdout.close()
 

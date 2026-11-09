@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <deque>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -226,10 +228,42 @@ struct ControlPipe { void poll(Host&, bool&) {} };
 struct Input {
     std::string buffer;
     bool eof{};
+#ifdef _WIN32
+    struct PipeInput { std::mutex mutex; std::deque<std::string> lines; std::atomic<bool> done{}; };
+    std::shared_ptr<PipeInput> pipeInput;
+    std::thread reader;
+    bool console{};
+    Input() {
+        const auto input = GetStdHandle(STD_INPUT_HANDLE); DWORD mode{}; console = GetConsoleMode(input, &mode) != 0;
+        if (console) return;
+        pipeInput = std::make_shared<PipeInput>(); const auto state = pipeInput;
+        // Unix stdin forwarded by Wine is not necessarily a Windows named
+        // pipe. Read it directly on a dedicated thread, leaving the host loop
+        // free for watch mode and control requests.
+        reader = std::thread([state, input] {
+            std::string line;
+            for (;;) {
+                char ch{}; DWORD got{};
+                if (!ReadFile(input, &ch, 1, &got, nullptr) || !got) break;
+                if (ch == '\n') {
+                    const bool quit = line == "quit";
+                    { std::lock_guard lock(state->mutex); state->lines.push_back(std::move(line)); }
+                    line.clear(); if (quit) break;
+                } else if (ch != '\r' && line.size() < 4096) line.push_back(ch);
+            }
+            state->done = true;
+        });
+    }
+    ~Input() {
+        if (!reader.joinable()) return;
+        if (!pipeInput->done) CancelSynchronousIo(reader.native_handle());
+        if (WaitForSingleObject(reader.native_handle(), 250) == WAIT_OBJECT_0) reader.join();
+        else reader.detach(); // reader owns its state until this process ends
+    }
+#endif
     bool line(std::string& out) {
 #ifdef _WIN32
-        const auto input = GetStdHandle(STD_INPUT_HANDLE);
-        if (GetFileType(input) == FILE_TYPE_CHAR) {
+        if (console) {
             while (_kbhit()) {
                 const int ch = _getch();
                 if (ch == '\r' || ch == '\n') { std::cout << '\n'; out = buffer; buffer.clear(); return true; }
@@ -238,14 +272,9 @@ struct Input {
             }
             return false;
         }
-        DWORD available{};
-        if (!PeekNamedPipe(input, nullptr, 0, nullptr, &available, nullptr)) { eof = true; return false; }
-        while (available--) {
-            char ch{}; DWORD got{};
-            if (!ReadFile(input, &ch, 1, &got, nullptr) || !got) { eof = true; return false; }
-            if (ch == '\n') { out = buffer; buffer.clear(); return true; }
-            if (ch != '\r') buffer.push_back(ch);
-        }
+        std::lock_guard lock(pipeInput->mutex);
+        if (!pipeInput->lines.empty()) { out = std::move(pipeInput->lines.front()); pipeInput->lines.pop_front(); return true; }
+        eof = pipeInput->done;
 #else
         for (;;) {
             fd_set ready; FD_ZERO(&ready); FD_SET(STDIN_FILENO, &ready); timeval timeout{};

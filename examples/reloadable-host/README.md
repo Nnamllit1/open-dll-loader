@@ -4,7 +4,7 @@ This example is an opt-in plugin host for Windows and native Linux. It loads its
 
 ## Windows quick start
 
-Build the project with `build.cmd x64`, then start `dist/x64/odl-demo-launcher.exe`. The launcher creates `active-plugin.dll` from revision 1 only if the active file does not exist, starts the host in watch mode, and opens the loader. Select `odl-plugin-host.exe` in the process sidebar. Its **Reload** and **Unload** buttons become available after host discovery.
+Build the project with `build.cmd x64`, then start `dist/x64/odl-demo-launcher.exe`. The launcher creates `active-plugin.dll` from revision 1 only if the active file does not exist, starts the host in watch mode without requiring stdin, and opens the loader. Select `odl-plugin-host.exe` in the process sidebar. Its **Reload** and **Unload** buttons become available after host discovery. The launcher host displays logs; use the console-only command below when you want interactive commands. Close that host window or press Ctrl+C when finished.
 
 To swap in the other sample without restarting the host:
 
