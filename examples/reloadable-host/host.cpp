@@ -188,7 +188,12 @@ class ControlPipe {
     bool connected_{};
     bool replied_{};
     ULONGLONG lastActivity_{};
-    void disconnect() { DisconnectNamedPipe(pipe_); connected_ = replied_ = false; }
+    bool trace_ = GetEnvironmentVariableW(L"ODL_HOST_TRACE", nullptr, 0) != 0;
+    void trace(const char* message) { if (trace_) log_line(message); }
+    void disconnect() {
+        trace("CONTROL disconnect"); DisconnectNamedPipe(pipe_); connected_ = replied_ = false;
+        DWORD mode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT; SetNamedPipeHandleState(pipe_, &mode, nullptr, nullptr);
+    }
 public:
     ControlPipe() {
         const auto name = L"\\\\.\\pipe\\OpenDllLoader.Host." + std::to_wstring(GetCurrentProcessId());
@@ -205,10 +210,23 @@ public:
             if (!ConnectNamedPipe(pipe_, nullptr) && GetLastError() != ERROR_PIPE_CONNECTED) return;
             connected_ = true;
             lastActivity_ = GetTickCount64();
+            trace("CONTROL connected");
+        }
+        DWORD available{};
+        if (!PeekNamedPipe(pipe_, nullptr, 0, nullptr, &available, nullptr)) {
+            const auto error = GetLastError();
+            if ((error == ERROR_NO_DATA || error == ERROR_PIPE_LISTENING) && GetTickCount64() - lastActivity_ < 1000) return;
+            disconnect(); return;
+        }
+        // Do not rely solely on PIPE_NOWAIT: use a non-consuming availability
+        // check before reading, including when the peer closes under Wine.
+        if (available < (replied_ ? sizeof(std::uint32_t) : sizeof(Request))) {
+            if (GetTickCount64() - lastActivity_ >= 1000) disconnect();
+            return;
         }
         if (replied_) {
             std::uint32_t ack{}; DWORD bytes{};
-            if (ReadFile(pipe_, &ack, sizeof(ack), &bytes, nullptr)) { disconnect(); return; }
+            if (ReadFile(pipe_, &ack, sizeof(ack), &bytes, nullptr)) { trace("CONTROL acknowledged"); disconnect(); return; }
             const auto error = GetLastError();
             if ((error == ERROR_NO_DATA || error == ERROR_PIPE_LISTENING) && GetTickCount64() - lastActivity_ < 1000) return;
             disconnect(); return;
@@ -220,6 +238,7 @@ public:
             disconnect(); return;
         }
         Reply reply;
+        trace("CONTROL request received");
         if (bytes != sizeof(request) || request.signature != magic || request.abi != version || request.reserved ||
             static_cast<std::uint32_t>(request.command) > static_cast<std::uint32_t>(Command::unload)) reply.error = ERROR_INVALID_DATA;
         else if (request.command == Command::reload && !host.reload()) reply.error = ERROR_DLL_INIT_FAILED;
@@ -232,6 +251,7 @@ public:
         // idle timeout also handles clients that close without an ACK; Wine
         // can report that case as NO_DATA rather than BROKEN_PIPE.
         replied_ = true; lastActivity_ = GetTickCount64();
+        trace("CONTROL reply sent");
     }
 };
 #else

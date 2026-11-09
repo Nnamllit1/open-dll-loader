@@ -18,7 +18,11 @@ HostReply host_command(const Process& expected, HostCommand command, DWORD timeo
     if (raw == INVALID_HANDLE_VALUE && GetLastError() == ERROR_PIPE_BUSY && WaitNamedPipeW(name.c_str(), timeout_ms))
         raw = CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
     Handle pipe(raw);
-    if (!pipe) return fail(L"This process does not expose the cooperative reload protocol. Arbitrary DLLs cannot be unloaded through this control.");
+    if (!pipe) {
+        const auto code = GetLastError();
+        if (code == ERROR_FILE_NOT_FOUND) return fail(L"This process does not expose the cooperative reload protocol. Arbitrary DLLs cannot be unloaded through this control.");
+        return fail(L"Cannot connect to the cooperative control pipe: " + error(code));
+    }
     ULONG server{};
     if (!GetNamedPipeServerProcessId(pipe.get(), &server) || server != expected.pid)
         return fail(L"The control pipe's server could not be verified. No command was sent.");

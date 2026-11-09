@@ -115,7 +115,13 @@ def main():
                 def client(command):
                     result = subprocess.run([str(args.client), command, str(session.host_pid)], capture_output=True, text=True, timeout=8,
                                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-                    assert result.returncode == 0, result.stdout + result.stderr
+                    if result.returncode:
+                        while True:
+                            try:
+                                session.seen.append(session.lines.get_nowait())
+                            except queue.Empty:
+                                break
+                        raise AssertionError(result.stdout + result.stderr + f"\nHost alive={session.process.poll() is None}; output={session.seen[-30:]}")
                     return result.stdout
                 require("active=1" in client("--host-status"), "GUI/CLI protocol discovers a cooperating host")
                 shutil.copyfile(args.v2, source)

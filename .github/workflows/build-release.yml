@@ -125,6 +125,7 @@ jobs:
           WINEPREFIX: ${{ runner.temp }}/odl-wine
           WINEARCH: win64
           WINEDEBUG: '-all'
+          ODL_HOST_TRACE: '1'
         run: |
           chmod +x scripts/wine-host.sh scripts/wine-client.sh
           xvfb-run -a bash -euo pipefail -c '
