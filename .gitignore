@@ -1,0 +1,11 @@
+/build/
+/build-*/
+/dist/
+/out/
+/staging/
+/wine-payload/
+__pycache__/
+*.pyc
+active-plugin.dll
+*.user
+*.pdb

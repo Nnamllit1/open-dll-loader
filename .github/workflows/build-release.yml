@@ -1,0 +1,164 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows ${{ matrix.label }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            label: x64
+          - arch: Win32
+            label: x86
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Check version
+        run: python scripts/check_version.py '${{ github.ref_name }}'
+      - name: Build and test
+        shell: pwsh
+        run: |
+          .\build.cmd ${{ matrix.arch }}
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\dist\${{ matrix.label }}\odl-demo-launcher.exe --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Package Windows build
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory out -Force | Out-Null
+          Compress-Archive -Path dist/* -DestinationPath out/OpenDllLoader-windows-${{ matrix.label }}.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-windows-${{ matrix.label }}
+          path: out/*.zip
+          if-no-files-found: error
+      - name: Collect Wine test payload
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory wine-payload -Force | Out-Null
+          Copy-Item build/x64/Release/*.exe wine-payload/
+          Copy-Item build/x64/Release/test-plugin.dll wine-payload/
+          Copy-Item build/x64/examples/reloadable-host/Release/*.exe wine-payload/
+          Copy-Item build/x64/examples/reloadable-host/Release/*.dll wine-payload/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: matrix.arch == 'x64'
+        with:
+          name: wine-test-payload
+          path: wine-payload/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: test-reports-windows-${{ matrix.label }}
+          path: |
+            build/${{ matrix.arch }}/Testing/Temporary/LastTest.log
+            build/${{ matrix.arch }}/ui-preview*.png*
+
+  linux:
+    name: Native Linux host
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/check_version.py '${{ github.ref_name }}'
+      - run: cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build/linux --parallel 4
+      - run: ctest --test-dir build/linux --output-on-failure
+      - name: Package native host
+        run: |
+          cmake --install build/linux --prefix staging
+          cp LICENSE staging/
+          cp examples/reloadable-host/README.md staging/README.md
+          mkdir -p staging/docs out
+          cp docs/linux-wine-proton.md staging/docs/
+          tar -C staging -czf out/OpenDllLoader-linux-x64-host.tar.gz .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-linux-x64-host
+          path: out/*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: test-reports-linux
+          path: build/linux/Testing/Temporary/LastTest.log
+
+  wine:
+    name: Wine x64 smoke tests
+    needs: windows
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: wine-test-payload
+          path: wine-payload
+      - name: Install Wine test runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends wine64 wine fonts-wine xvfb xauth
+      - name: Run Windows tests under Wine
+        env:
+          WINEPREFIX: ${{ runner.temp }}/odl-wine
+          WINEARCH: win64
+          WINEDEBUG: '-all'
+        run: |
+          chmod +x scripts/wine-host.sh scripts/wine-client.sh
+          xvfb-run -a bash -euo pipefail -c '
+            wineboot -u
+            wine wine-payload/open-dll-loader.exe --self-test "$(winepath -w "$PWD/wine-payload/test-plugin.dll")"
+            wine wine-payload/OpenDllLoader.exe --ui-test "$(winepath -w "$PWD/wine-preview.png")"
+            export ODL_HOST_EXE="$PWD/wine-payload/odl-plugin-host.exe"
+            export ODL_CLIENT_EXE="$PWD/wine-payload/open-dll-loader.exe"
+            python examples/reloadable-host/test_reload.py --host "$PWD/scripts/wine-host.sh" --client "$PWD/scripts/wine-client.sh" --v1 "$PWD/wine-payload/reloadable-plugin-v1.dll" --v2 "$PWD/wine-payload/reloadable-plugin-v2.dll" --refuse "$PWD/wine-payload/refuse-stop-plugin.dll"
+          '
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: test-reports-wine
+          path: wine-preview.png*
+
+  release:
+    name: Publish tagged release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, wine]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: out
+      - name: Create checksums and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd out
+          sha256sum *.zip *.tar.gz > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" ./* --verify-tag --generate-notes --title "Open DLL Loader $GITHUB_REF_NAME"
