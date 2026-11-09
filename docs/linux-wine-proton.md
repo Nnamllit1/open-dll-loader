@@ -11,6 +11,24 @@ The project has two platform paths:
 
 The native Linux release contains the portable host and examples. It does not contain a native Linux process injector or GUI. Windows DLLs and Linux shared objects are not interchangeable.
 
+## Open the loader in a running Steam game's prefix
+
+Use `OpenDllLoader-linux-proton.tar.gz` for this workflow. It contains a native Linux game picker and both Windows loader architectures. Install Python 3.10+, Tkinter (`python3-tk` on many distributions), and [Protontricks](https://github.com/Matoking/protontricks#installation), then run:
+
+```bash
+./odl-proton
+```
+
+Start your game normally in Steam. The picker discovers existing Proton prefixes from native and Flatpak Steam installations and their configured library folders. It marks running games using accessible process metadata and refreshes every five seconds. Select the running game, choose its target architecture, and click **Open loader for this game**. The Windows loader opens through `protontricks-launch --appid` with the selected Steam installation. Select the game's Windows process and your DLL inside that loader.
+
+This uses the existing game prefix; it does not start the demo host or launch the game again. Protontricks resolves the game's configured Proton version and Steam runtime. Changing the compatibility tool while a game is running can make those differ; restart the game after such a change. An initialized prefix and a previous Steam launch are required. The launcher does not edit compatibility settings or persistent Flatpak permissions.
+
+Native Protontricks is preferred when available; the installed Flatpak backend is also supported. Flatpak filesystem permissions still apply to external libraries and DLL paths. Custom prefixes outside Steam's `compatdata` layout, conflicting duplicate prefixes, and inaccessible process namespaces are reported instead of guessing. A recognized prefix does not establish that its game accepts normal DLL loading.
+
+Use `./odl-proton --list` or `--json` for discovery without a desktop window. `--steam-dir /path/to/Steam` restricts discovery to that installation and its libraries; repeat the option for several roots. `--appid 123456 --arch x64` opens a loader for one unambiguously discovered running game. Source users can supply `--payload-root /path/to/extracted/windows-release`. See the [complete game-picker instructions](https://github.com/Nnamllit1/open-dll-loader/blob/main/linux/README.md).
+
+CI validates fixture Steam layouts, Linux process detection, UI states, archive integrity, and the Windows loader under Wine. A real Steam game under Proton is not exercised by CI.
+
 ## Wine example in an isolated prefix
 
 Extract the Windows x64 release to a writable directory. From its root:
@@ -31,7 +49,7 @@ cp x64/reloadable-plugin-v2.dll x64/active-plugin.dll
 
 The host reloads after the file settles. If GUI host controls are unavailable in a particular Wine build, use the host's console commands and watch mode. The loader's normal process access, module enumeration, and Win32 UI APIs remain compatibility requirements; this guide does not imply that every Wine version supports them.
 
-## Proton through Steam
+## Isolated Proton demo through Steam
 
 Use Proton supplied by Steam, as recommended by [Valve's Proton project](https://github.com/ValveSoftware/Proton). Add `x64/odl-demo-launcher.exe` as a non-Steam shortcut and select your installed Proton version in that shortcut's Compatibility settings. Launch the shortcut through Steam.
 

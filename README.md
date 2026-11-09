@@ -6,7 +6,9 @@ A small MIT-licensed C++ toolkit for plugin development: a Windows DLL loader wi
 
 ![Open DLL Loader interface, showing sample processes and libraries](docs/interface.png)
 
-## Version 0.3.0
+## Version 0.4.0
+
+A Linux game picker now discovers initialized Proton games across native Steam, Flatpak Steam, and configured library folders. It marks running games, refreshes every five seconds, and opens the Windows loader for the selected game through Protontricks. The Linux Proton package includes both Windows architectures; it uses the game's existing prefix instead of starting the demo host. See the [game-picker instructions](linux/README.md).
 
 The process list now refreshes in the background every two seconds, preserving the current filter and process identity. Reload and Unload controls are available for cooperating hosts. The included host can watch a rebuilt DLL, stage an unlocked copy, preserve host-owned state, and stop the old plugin before replacement.
 
@@ -17,13 +19,15 @@ The desktop interface also provides an architecture filter, a DLL queue with ind
 | Windows x64/x86 | Native GUI, CLI, demo launcher, and cooperative host |
 | Native Linux x64 | Portable CLI host and `.so` plugin examples; no native desktop injector |
 | Wine | Windows binaries, with a separate CI smoke-test job |
-| Proton | Steam launcher example; test the specific Proton version separately |
+| Proton | Linux game picker and bundled Windows loaders via Protontricks; actual Steam/Proton validation remains separate |
 
 See [Linux/Wine/Proton](docs/linux-wine-proton.md) and the [cooperative hot-reload example](https://github.com/Nnamllit1/open-dll-loader/tree/main/examples/reloadable-host). Windows 10 version 1511 or later is required for the native desktop build.
 
 ## Download
 
-[GitHub Releases](https://github.com/Nnamllit1/open-dll-loader/releases) provides Windows x64/x86 ZIPs and a native Linux host archive. Extract a Windows ZIP and start `x64/odl-demo-launcher.exe` or `x86/odl-demo-launcher.exe` for the example, or start `OpenDllLoader.exe` in that same architecture directory. Binary packages include `docs/hot-reload.md` and the Wine/Proton guide.
+[GitHub Releases](https://github.com/Nnamllit1/open-dll-loader/releases) provides Windows x64/x86 ZIPs, a Linux Proton game-picker archive, and a separate native Linux host archive. Extract a Windows ZIP and start `x64/odl-demo-launcher.exe` or `x86/odl-demo-launcher.exe` for the example, or start `OpenDllLoader.exe` in that same architecture directory. Windows packages include `docs/hot-reload.md` and the Wine/Proton guide.
+
+For an existing Steam game on Linux, extract `OpenDllLoader-linux-proton.tar.gz`, install Python 3.10+, Tkinter, and [Protontricks](https://github.com/Matoking/protontricks#installation), and run `./odl-proton`. Start the game through Steam, select it in the picker, and click **Open loader for this game**. Select the target process and DLL in the Windows loader after it opens. Prefix discovery does not guarantee that the game permits loading.
 
 The Linux archive contains `odl-plugin-host` and sample `.so` files at its root. Run `./odl-plugin-host --plugin "$PWD/reloadable-plugin-v1.so" --watch`. Prebuilt Linux artifacts are built on Ubuntu 24.04 and need a compatible system runtime; build from source on other environments when necessary. Paths beginning with `dist/` below refer to local source builds.
 
@@ -106,7 +110,7 @@ ctest --test-dir build/linux --output-on-failure
 
 ## CI and automatic releases
 
-GitHub Actions builds and tests Windows x64/x86 and the native Linux host, then runs the Windows test binaries under Wine. Build artifacts and test reports are attached to each run. A `v<version>` tag must match `CMakeLists.txt`; after every required job passes, the workflow publishes Windows ZIPs, the native Linux host archive, and SHA-256 checksums as a GitHub release. Proton compatibility is a separate manual check, not inferred from Wine CI.
+GitHub Actions builds and tests Windows x64/x86 and the native Linux host, then runs the Windows test binaries under Wine. It also checks the Linux game picker's discovery, UI, and combined package. Build artifacts and test reports are attached to each run. A `v<version>` tag must match `CMakeLists.txt`; after every required job passes, the workflow publishes Windows ZIPs, the Linux Proton package, the native Linux host archive, and SHA-256 checksums as a GitHub release. Actual Steam/Proton compatibility is a separate manual check, not inferred from Wine or fixture tests.
 
 To run CMake directly:
 

@@ -83,6 +83,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python scripts/check_version.py '${{ github.ref_name }}'
+      - run: python -m unittest discover -s linux -p test_proton.py -v
       - run: cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build/linux --parallel 4
       - run: ctest --test-dir build/linux --output-on-failure
@@ -144,10 +145,47 @@ jobs:
           name: test-reports-wine
           path: wine-preview.png*
 
+  proton:
+    name: Linux Proton game picker
+    needs: windows
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-windows-*
+          merge-multiple: true
+          path: windows-packages
+      - name: Check game discovery
+        run: python -m unittest discover -s linux -p test_proton.py -v
+      - name: Check game picker UI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-tk python3-pil xvfb xauth
+          xvfb-run -a -s '-screen 0 1280x900x24' /usr/bin/python3 linux/test_proton_ui.py proton-preview.png
+      - name: Package game picker and Windows payloads
+        run: |
+          chmod +x linux/odl-proton
+          linux/odl-proton --help
+          python scripts/package_proton.py --windows windows-packages --output out/OpenDllLoader-linux-proton.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-linux-proton
+          path: out/*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: test-reports-proton
+          path: proton-preview.png*
+
   release:
     name: Publish tagged release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux, wine]
+    needs: [windows, linux, wine, proton]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

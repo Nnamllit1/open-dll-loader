@@ -312,7 +312,7 @@ void paint(HDC dc) {
     ui::card(dc, ui::rect(23, 171, 196, 38), ui::field, GetFocus() == search ? ui::accent : ui::field, 8);
     ui::text(dc, std::to_wstring(visibleProcesses.size()) + L" processes shown", ui::rect(24, 256, 276, 20), ui::caption, RGB(147, 167, 193));
     if (visibleProcesses.empty()) ui::text(dc, L"No matching processes", ui::rect(24, 302, 276, 40), ui::body, RGB(147, 167, 193));
-    ui::text(dc, L"v0.3.0 / " + odl::machine_name(odl::own_machine()) + L"   ·   Live refresh: 2s   ·   F5", ui::rect(24, clientHeight - 42, 280, 24), ui::caption, RGB(147, 167, 193));
+    ui::text(dc, L"v0.4.0 / " + odl::machine_name(odl::own_machine()) + L"   ·   Live refresh: 2s   ·   F5", ui::rect(24, clientHeight - 42, 280, 24), ui::caption, RGB(147, 167, 193));
     ui::text(dc, L"Load libraries", ui::rect(356, 30, full - 160, 42), ui::title, ui::ink);
     ui::text(dc, L"Choose a process. Review your DLLs. Load when ready.", ui::rect(356, 78, full, 24), ui::body, ui::muted);
     const auto pillBg = statusColor == ui::red ? RGB(255, 235, 238) : statusColor == ui::accent ? RGB(229, 240, 255) : RGB(225, 244, 237);

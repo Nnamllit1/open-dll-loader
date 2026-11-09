@@ -106,7 +106,7 @@ int wmain(int argc, wchar_t** argv) {
             }
             return 0;
         }
-        std::wcout << L"Open DLL Loader 0.3.0 (" << odl::machine_name(odl::own_machine()) << L")\n"
+        std::wcout << L"Open DLL Loader 0.4.0 (" << odl::machine_name(odl::own_machine()) << L")\n"
             L"  --list                       List readable processes\n"
             L"  --inspect DLL                Validate native PE and print SHA-256\n"
             L"  --diagnose PID DLL           Read-only import/policy report (PID 0: file only)\n"
