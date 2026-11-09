@@ -301,14 +301,15 @@ int run(const std::vector<fs::path>& args) {
     std::signal(SIGINT, interrupt); std::signal(SIGTERM, interrupt);
     const auto initialStamp = stamp(host.source()); host.reload();
     std::cout << "HOST_READY pid=" << pid() << "\nCommands: status, reload, unload, quit. Watch=" << (watch ? 1 : 0) << '\n' << std::flush;
-    Input input;
+    std::unique_ptr<Input> input;
+    if (!noConsole) input = std::make_unique<Input>();
     auto attempted = initialStamp, observed = attempted;
     auto changed = std::chrono::steady_clock::now();
     while (!interrupted) {
         control.poll(host, watch);
         if (!noConsole) {
             std::string command;
-            if (input.line(command)) {
+            if (input->line(command)) {
                 if (command == "quit") break;
                 if (command == "reload") { host.reload(); attempted = stamp(host.source()); }
                 else if (command == "unload") { host.unload(); watch = false; }
@@ -317,7 +318,7 @@ int run(const std::vector<fs::path>& args) {
                 else if (command == "watch off") { watch = false; log_line("Watch paused."); }
                 else if (!command.empty()) log_line("Commands: status, reload, unload, watch on, watch off, quit.");
             }
-            if (input.eof) break;
+            if (input->eof) break;
         }
         host.tick();
         if (watch) {
