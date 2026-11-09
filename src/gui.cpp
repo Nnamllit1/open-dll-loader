@@ -9,6 +9,7 @@
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <thread>
 
@@ -499,7 +500,7 @@ bool render_png(HWND hwnd, const std::filesystem::path& file) {
 }
 int ui_test(HWND hwnd, const std::filesystem::path& output) {
     unsigned checks{};
-    auto require = [&](bool ok) { if (!ok) throw std::wstring(L"UI test failed at check ") + std::to_wstring(checks + 1); ++checks; };
+    auto require = [&](bool ok, const std::wstring& detail = L"") { if (!ok) throw std::wstring(L"UI test failed at check ") + std::to_wstring(checks + 1) + L" " + detail; ++checks; };
     require(visibleProcesses.size() == 2);
     SetWindowTextW(search, L"4242"); require(visibleProcesses.size() == 1);
     ListView_SetItemState(processList, 0, LVIS_SELECTED, LVIS_SELECTED); require(target.pid == 4242);
@@ -546,7 +547,9 @@ int ui_test(HWND hwnd, const std::filesystem::path& output) {
         RECT client{}; GetClientRect(hwnd, &client);
         for (auto h : {search, processList, queueList, logBox, GetDlgItem(window, LOAD)}) {
             RECT child{}; GetWindowRect(h, &child); MapWindowPoints(nullptr, hwnd, reinterpret_cast<POINT*>(&child), 2);
-            require(child.left >= 0 && child.top >= 0 && child.right <= client.right && child.bottom <= client.bottom && child.bottom > child.top);
+            require(child.left >= 0 && child.top >= 0 && child.right <= client.right && child.bottom <= client.bottom && child.bottom > child.top,
+                L"control=" + std::to_wstring(GetDlgCtrlID(h)) + L" child=" + std::to_wstring(child.left) + L"," + std::to_wstring(child.top) + L"," + std::to_wstring(child.right) + L"," + std::to_wstring(child.bottom) +
+                L" client=" + std::to_wstring(client.right) + L"," + std::to_wstring(client.bottom) + L" dpi=" + std::to_wstring(ui::dpi));
         }
         if (size.first == 1080) require(render_png(hwnd, output.wstring() + L".compact.png"));
     }
@@ -585,7 +588,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
                               CW_USEDEFAULT, CW_USEDEFAULT, ui::px(1220), ui::px(860), nullptr, nullptr, instance, nullptr);
     int result = 1;
     if (hwnd && testMode) {
-        try { result = ui_test(hwnd, preview); } catch (const std::wstring& error) { std::wofstream(std::filesystem::path(preview.wstring() + L".error.txt")) << error; }
+        try { result = ui_test(hwnd, preview); } catch (const std::wstring& error) {
+            std::wofstream(std::filesystem::path(preview.wstring() + L".error.txt")) << error;
+            const auto length = WideCharToMultiByte(CP_UTF8, 0, error.data(), static_cast<int>(error.size()), nullptr, 0, nullptr, nullptr);
+            std::string message(static_cast<size_t>(length), '\0'); WideCharToMultiByte(CP_UTF8, 0, error.data(), static_cast<int>(error.size()), message.data(), length, nullptr, nullptr); std::cerr << message << '\n';
+        }
         DestroyWindow(hwnd);
     } else if (hwnd) {
         ShowWindow(hwnd, show); MSG msg{};
