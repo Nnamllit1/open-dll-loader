@@ -19,7 +19,13 @@ The desktop interface also provides an architecture filter, a DLL queue with ind
 | Wine | Windows binaries, with a separate CI smoke-test job |
 | Proton | Steam launcher example; test the specific Proton version separately |
 
-See [Linux/Wine/Proton](docs/linux-wine-proton.md) and the [cooperative hot-reload example](examples/reloadable-host/README.md). Windows 10 version 1511 or later is required for the native desktop build.
+See [Linux/Wine/Proton](docs/linux-wine-proton.md) and the [cooperative hot-reload example](https://github.com/Nnamllit1/open-dll-loader/tree/main/examples/reloadable-host). Windows 10 version 1511 or later is required for the native desktop build.
+
+## Download
+
+[GitHub Releases](https://github.com/Nnamllit1/open-dll-loader/releases) provides Windows x64/x86 ZIPs and a native Linux host archive. Extract a Windows ZIP and start `x64/odl-demo-launcher.exe` or `x86/odl-demo-launcher.exe` for the example, or start `OpenDllLoader.exe` in that same architecture directory. Binary packages include `docs/hot-reload.md` and the Wine/Proton guide.
+
+The Linux archive contains `odl-plugin-host` and sample `.so` files at its root. Run `./odl-plugin-host --plugin "$PWD/reloadable-plugin-v1.so" --watch`. Prebuilt Linux artifacts are built on Ubuntu 24.04 and need a compatible system runtime; build from source on other environments when necessary. Paths beginning with `dist/` below refer to local source builds.
 
 ## Use
 

@@ -39,6 +39,12 @@ HostReply host_command(const Process& expected, HostCommand command, DWORD timeo
     }
     if (bytes != sizeof(result) || result.signature != control::magic || result.abi != control::version)
         return fail(L"The host returned an incompatible control response.");
+    const auto ack = control::acknowledgement;
+    OVERLAPPED ackIo{}; ackIo.hEvent = event.get(); ResetEvent(event.get()); DWORD acknowledged{};
+    if (!WriteFile(pipe.get(), &ack, sizeof(ack), &acknowledged, &ackIo) && GetLastError() == ERROR_IO_PENDING) {
+        if (WaitForSingleObject(event.get(), timeout_ms) != WAIT_OBJECT_0) CancelIoEx(pipe.get(), &ackIo);
+        GetOverlappedResult(pipe.get(), &ackIo, &acknowledged, TRUE);
+    }
     result.message[sizeof(result.message) - 1] = '\0';
     const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, result.message, -1, nullptr, 0);
     if (length > 0) {

@@ -186,6 +186,9 @@ public:
 class ControlPipe {
     HANDLE pipe_ = INVALID_HANDLE_VALUE;
     bool connected_{};
+    bool replied_{};
+    ULONGLONG lastActivity_{};
+    void disconnect() { DisconnectNamedPipe(pipe_); connected_ = replied_ = false; }
 public:
     ControlPipe() {
         const auto name = L"\\\\.\\pipe\\OpenDllLoader.Host." + std::to_wstring(GetCurrentProcessId());
@@ -201,12 +204,20 @@ public:
         if (!connected_) {
             if (!ConnectNamedPipe(pipe_, nullptr) && GetLastError() != ERROR_PIPE_CONNECTED) return;
             connected_ = true;
+            lastActivity_ = GetTickCount64();
+        }
+        if (replied_) {
+            std::uint32_t ack{}; DWORD bytes{};
+            if (ReadFile(pipe_, &ack, sizeof(ack), &bytes, nullptr)) { disconnect(); return; }
+            const auto error = GetLastError();
+            if ((error == ERROR_NO_DATA || error == ERROR_PIPE_LISTENING) && GetTickCount64() - lastActivity_ < 1000) return;
+            disconnect(); return;
         }
         Request request; DWORD bytes{};
         if (!ReadFile(pipe_, &request, sizeof(request), &bytes, nullptr)) {
             const auto error = GetLastError();
-            if (error == ERROR_NO_DATA || error == ERROR_PIPE_LISTENING) return;
-            DisconnectNamedPipe(pipe_); connected_ = false; return;
+            if ((error == ERROR_NO_DATA || error == ERROR_PIPE_LISTENING) && GetTickCount64() - lastActivity_ < 1000) return;
+            disconnect(); return;
         }
         Reply reply;
         if (bytes != sizeof(request) || request.signature != magic || request.abi != version || request.reserved ||
@@ -216,9 +227,11 @@ public:
         if (request.command == Command::unload && !reply.error) watch = false;
         reply.active = host.active() ? 1u : 0u; reply.generation = host.generation();
         const auto text = host.status(); std::memcpy(reply.message, text.data(), std::min(text.size(), sizeof(reply.message) - 1));
-        WriteFile(pipe_, &reply, sizeof(reply), &bytes, nullptr);
-        // The client may not have consumed the response yet. Leave this
-        // connection open; its next disconnect is handled by the next poll.
+        if (!WriteFile(pipe_, &reply, sizeof(reply), &bytes, nullptr) || bytes != sizeof(reply)) { disconnect(); return; }
+        // Wait for acknowledgement before discarding the response. A bounded
+        // idle timeout also handles clients that close without an ACK; Wine
+        // can report that case as NO_DATA rather than BROKEN_PIPE.
+        replied_ = true; lastActivity_ = GetTickCount64();
     }
 };
 #else

@@ -3,6 +3,7 @@
 
 namespace odl::control {
 inline constexpr std::uint32_t magic = 0x4f444c48, version = 1;
+inline constexpr std::uint32_t acknowledgement = 0x4f444c41;
 enum class Command : std::uint32_t { status = 0, reload = 1, unload = 2 };
 struct Request { std::uint32_t signature = magic, abi = version; Command command{}; std::uint32_t reserved{}; };
 struct Reply {
