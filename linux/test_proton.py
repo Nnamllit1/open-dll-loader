@@ -145,6 +145,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertNotIn("WINEPREFIX", kwargs["env"])
         self.assertNotIn("PROTON_VERSION", kwargs["env"])
         self.assertEqual(kwargs["env"]["STEAM_DIR"], str(self.steam.resolve()))
+        self.assertEqual(kwargs["cwd"], payload / "x64")
         self.assertNotIn("shell", kwargs)
 
     def test_flatpak_backend_has_scoped_payload_access_and_explicit_steam_binding(self):

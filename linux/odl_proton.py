@@ -23,9 +23,11 @@ OVERRIDES = (
 
 def read_vdf(path):
     """Read Steam's text KeyValues files; never execute their contents."""
-    text = path.read_text(encoding="utf-8-sig", errors="replace")
-    if len(text) > 4 * 1024 * 1024:
+    with path.open("rb") as stream:
+        data = stream.read(4 * 1024 * 1024 + 1)
+    if len(data) > 4 * 1024 * 1024:
         raise ValueError("Steam metadata is too large")
+    text = data.decode("utf-8-sig", errors="replace")
     pattern = re.compile(r'\s+|//[^\n]*|"(?:\\.|[^"\\])*"|[{}]|[^\s{}"]+')
     tokens, offset = [], 0
     while offset < len(text):

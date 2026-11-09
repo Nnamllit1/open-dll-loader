@@ -2,6 +2,8 @@
 
 This package includes a native Linux game picker and the Windows x64/x86 loader builds. It discovers initialized Steam Proton prefixes across native Steam, Flatpak Steam, and external Steam libraries, and marks games with accessible running-process evidence.
 
+![Proton game picker showing sample games](../docs/proton-picker.png)
+
 ## Start
 
 Install Python 3.10 or later, Tkinter (often packaged as `python3-tk`), and [Protontricks](https://github.com/Matoking/protontricks#installation). Native and Flatpak Protontricks are supported as external launch backends; this package does not bundle them or install anything automatically.
@@ -32,4 +34,4 @@ An existing prefix and a prior Steam launch are required. Custom paths outside S
 
 Native Protontricks is preferred when installed. With Flatpak Protontricks, the selected Windows loader directory is exposed read-only for that invocation. Other external libraries or DLL locations must already be accessible to the backend. Failed launches report a log under `${XDG_STATE_HOME:-$HOME/.local/state}/open-dll-loader/`.
 
-See [the platform guide](docs/linux-wine-proton.md) for Wine examples and validation boundaries. CI exercises discovery fixtures, UI behavior, package integrity, and the Windows loader under Wine; it does not run a real Steam game under Proton.
+See [the platform guide](../docs/linux-wine-proton.md) for Wine examples and validation boundaries. CI exercises discovery fixtures, UI behavior, package integrity, and the Windows loader under Wine; it does not run a real Steam game under Proton.

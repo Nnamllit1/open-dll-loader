@@ -8,7 +8,7 @@ A small MIT-licensed C++ toolkit for plugin development: a Windows DLL loader wi
 
 ## Version 0.4.0
 
-A Linux game picker now discovers initialized Proton games across native Steam, Flatpak Steam, and configured library folders. It marks running games, refreshes every five seconds, and opens the Windows loader for the selected game through Protontricks. The Linux Proton package includes both Windows architectures; it uses the game's existing prefix instead of starting the demo host. See the [game-picker instructions](linux/README.md).
+A Linux game picker now discovers initialized Proton games across native Steam, Flatpak Steam, and configured library folders. It marks running games, refreshes every five seconds, and opens the Windows loader for the selected game through Protontricks. The Linux Proton package includes both Windows architectures; it uses the game's existing prefix instead of starting the demo host. See the [game-picker instructions](https://github.com/Nnamllit1/open-dll-loader/blob/main/linux/README.md).
 
 The process list now refreshes in the background every two seconds, preserving the current filter and process identity. Reload and Unload controls are available for cooperating hosts. The included host can watch a rebuilt DLL, stage an unlocked copy, preserve host-owned state, and stop the old plugin before replacement.
 
@@ -83,7 +83,7 @@ Loading uses the documented Windows APIs `OpenProcess`, `VirtualAllocEx`, `Write
 
 The remote thread gets a 15-second wait. If it has not finished or its status cannot be established, the result is indeterminate. The small path allocation is retained until target exit rather than freeing memory a live thread might still use. The program does not terminate that thread. Inspect or restart the target before retrying.
 
-This version supports manual loading, multiple checked DLLs, drag and drop, process selection, input validation, and command-line use. It does not implement auto-injection, managed DLL hosting, exported-function calls, manual mapping, thread hijacking, scrambling, module hiding, header erasure, or driver loading. It makes no network requests and installs no services, startup entries, or dependencies.
+This version supports manual loading, multiple checked DLLs, drag and drop, process selection, input validation, and command-line use. It does not implement auto-injection, managed DLL hosting, exported-function calls, manual mapping, thread hijacking, scrambling, module hiding, header erasure, or driver loading. The Windows loader makes no network requests and installs no services, startup entries, or dependencies.
 
 Antivirus software can classify DLL loaders as hacktools even when all source is available. This project does not promise detection-free binaries. Keep protection enabled; disputed detections can be submitted to [Microsoft for analysis](https://www.microsoft.com/en-us/wdsi/filesubmission). The project does not add exclusions or alter Defender.
 

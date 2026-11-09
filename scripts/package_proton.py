@@ -12,11 +12,14 @@ from checksums import verify_archive
 
 def package(windows, output):
     root = Path(__file__).resolve().parents[1]
+    version = re.search(r"project\(OpenDllLoader VERSION ([0-9.]+)", (root / "CMakeLists.txt").read_text()).group(1)
     files = {}
     for arch in ("x64", "x86"):
         archive = windows / f"OpenDllLoader-windows-{arch}.zip"
         verify_archive(archive, arch)
         with zipfile.ZipFile(archive) as source:
+            if f"## Version {version}" not in source.read("README.md").decode("utf-8"):
+                raise ValueError("Windows payload version differs from the Linux launcher")
             for name in source.namelist():
                 parts = name.split("/")
                 if len(parts) == 2 and parts[0] == arch and Path(name).suffix in (".exe", ".dll"):
@@ -26,10 +29,9 @@ def package(windows, output):
                          ("docs/linux-wine-proton.md", "docs/linux-wine-proton.md"),
                          ("docs/proton-picker.png", "docs/proton-picker.png")):
         path = root / source
-        if dest.endswith(".png") and not path.exists():
-            continue
         files[dest] = path.read_bytes()
-    version = re.search(r"project\(OpenDllLoader VERSION ([0-9.]+)", (root / "CMakeLists.txt").read_text()).group(1)
+        if dest == "README.md":
+            files[dest] = files[dest].replace(b"(../docs/", b"(docs/")
     files["VERSION"] = (version + "\n").encode()
     files["SHA256SUMS.txt"] = "".join(f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in sorted(files.items())).encode()
     output.parent.mkdir(parents=True, exist_ok=True)
