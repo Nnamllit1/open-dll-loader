@@ -126,7 +126,9 @@ void filter_processes(bool preserveScroll = false) {
     if (top > 0 && !visibleProcesses.empty()) {
         auto row = std::min(top, static_cast<int>(visibleProcesses.size()) - 1);
         for (size_t i = 0; i < visibleProcesses.size(); ++i) if (visibleProcesses[i].pid == anchor.pid && visibleProcesses[i].created == anchor.created) { row = static_cast<int>(i); break; }
-        ListView_Scroll(processList, 0, rowHeight * row);
+        // Wine may retain a scroll offset across item replacement, while
+        // Windows commonly resets it. Scroll from the actual current row.
+        ListView_Scroll(processList, 0, rowHeight * (row - ListView_GetTopIndex(processList)));
     }
     update_actions();
 }
@@ -548,7 +550,9 @@ int ui_test(HWND hwnd, const std::filesystem::path& output) {
     Snapshot inserted; inserted.selected = target; inserted.processes = allProcesses;
     inserted.processes.insert(inserted.processes.begin(), {8000, 100, odl::own_machine(), L"EarlierProcess.exe", L"C:\\Examples\\EarlierProcess.exe"});
     receive_snapshot(std::move(inserted));
-    require(visibleProcesses[ListView_GetTopIndex(processList)].pid == topProcess.pid);
+    require(visibleProcesses[ListView_GetTopIndex(processList)].pid == topProcess.pid,
+        L"scroll anchor expected PID=" + std::to_wstring(topProcess.pid) + L" actual PID=" + std::to_wstring(visibleProcesses[ListView_GetTopIndex(processList)].pid) +
+        L" top=" + std::to_wstring(ListView_GetTopIndex(processList)) + L" previous=" + std::to_wstring(scrollTop));
     allProcesses = savedProcesses; filter_processes();
     append_library({L"C:\\Examples\\Plugins\\ExamplePlugin.dll", std::wstring(64, L'a'), odl::own_machine(), {L"KERNEL32.dll"}});
     append_library({L"C:\\Examples\\Plugins\\DiagnosticsOverlay.dll", std::wstring(64, L'b'), odl::own_machine(), {L"USER32.dll"}});
