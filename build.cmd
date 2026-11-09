@@ -32,7 +32,7 @@ if errorlevel 1 exit /b 1
 if errorlevel 1 exit /b 1
 set "ODL_LABEL=x64"
 if /i "%ODL_ARCH%"=="Win32" set "ODL_LABEL=x86"
-set "ODL_DIST=%ODL_ROOT%dist"
+if not defined ODL_DIST set "ODL_DIST=%ODL_ROOT%dist"
 if not exist "%ODL_DIST%\%ODL_LABEL%" mkdir "%ODL_DIST%\%ODL_LABEL%"
 if errorlevel 1 exit /b 1
 copy /y "%ODL_ROOT%build\%ODL_ARCH%\Release\OpenDllLoader.exe" "%ODL_DIST%\%ODL_LABEL%\" >nul
@@ -55,7 +55,7 @@ copy /y "%ODL_ROOT%docs\linux-wine-proton.md" "%ODL_DIST%\docs\" >nul
 if errorlevel 1 exit /b 1
 copy /y "%ODL_ROOT%examples\reloadable-host\README.md" "%ODL_DIST%\docs\hot-reload.md" >nul
 if errorlevel 1 exit /b 1
-powershell.exe -NoProfile -Command "$root=$env:ODL_DIST; Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object Extension -in @('.exe','.dll') | ForEach-Object { $h=Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256; '{0}  {1}' -f $h.Hash.ToLowerInvariant(),$_.FullName.Substring($root.Length + 1) } | Set-Content -LiteralPath (Join-Path $root 'SHA256SUMS.txt') -Encoding ascii"
+python "%ODL_ROOT%scripts\checksums.py" write "%ODL_DIST%"
 if errorlevel 1 exit /b 1
 if defined ODL_BOTH if /i "%ODL_ARCH%"=="x64" (
   set "ODL_ARCH=Win32"

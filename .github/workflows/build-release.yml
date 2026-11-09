@@ -45,6 +45,8 @@ jobs:
         run: |
           New-Item -ItemType Directory out -Force | Out-Null
           Compress-Archive -Path dist/* -DestinationPath out/OpenDllLoader-windows-${{ matrix.label }}.zip
+          python scripts/checksums.py verify-zip out/OpenDllLoader-windows-${{ matrix.label }}.zip ${{ matrix.label }}
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-windows-${{ matrix.label }}

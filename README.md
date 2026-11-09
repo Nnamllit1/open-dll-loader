@@ -92,7 +92,7 @@ Install Visual Studio 2022 with **Desktop development with C++**, the Windows SD
 .\build.cmd x64
 ```
 
-The script writes binaries and SHA-256 checksums under `dist/`. It works with the default PowerShell execution policy. `build.ps1` is also available for environments that permit local PowerShell scripts. Tests build a tiny source-controlled DLL, launch a new child of the CLI, load the DLL into that child, and require a DLL initialization acknowledgment. They also exercise dry-run behavior, stale identity rejection, architecture rejection, missing files, executable rejection, repeated loading, and exited targets. No existing application is selected by the test.
+The script writes binaries and SHA-256 checksums under `dist/`. Set `ODL_DIST` to a separate absolute directory to stage a build without replacing an open copy of the loader. It works with the default PowerShell execution policy. `build.ps1` is also available for environments that permit local PowerShell scripts. Tests build a tiny source-controlled DLL, launch a new child of the CLI, load the DLL into that child, and require a DLL initialization acknowledgment. They also exercise dry-run behavior, stale identity rejection, architecture rejection, missing files, executable rejection, repeated loading, and exited targets. No existing application is selected by the test.
 
 A separate native UI test uses sample processes and libraries to check search, selection, architecture filtering, checkbox handling, button states, queue removal, and error presentation. It renders empty, populated, compact, failure, and 150% scale layouts for visual review. It does not load DLLs or modify another process. The desktop automation helper is not required for this test.
 

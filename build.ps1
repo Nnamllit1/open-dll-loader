@@ -43,7 +43,5 @@ if (Test-Path -LiteralPath (Join-Path $projectRoot 'docs\interface.png')) {
 }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs\linux-wine-proton.md') -Destination (Join-Path $distRoot 'docs')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'examples\reloadable-host\README.md') -Destination (Join-Path $distRoot 'docs\hot-reload.md')
-Get-ChildItem -LiteralPath $distRoot -Recurse -File | Where-Object Extension -in @('.exe','.dll') | ForEach-Object {
-    $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
-    '{0}  {1}' -f $hash.Hash.ToLowerInvariant(),$_.FullName.Substring($distRoot.Length + 1)
-} | Set-Content -LiteralPath (Join-Path $distRoot 'SHA256SUMS.txt') -Encoding ascii
+& python (Join-Path $projectRoot 'scripts\checksums.py') write $distRoot
+if ($LASTEXITCODE -ne 0) { throw 'Checksum generation failed.' }
