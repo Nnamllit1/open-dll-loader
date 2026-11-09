@@ -61,6 +61,12 @@ def main(output):
         app.render()
         app.table.selection_set(next(iter(app.visible)))
         app.selection_changed()
+        root.geometry("780x570")
+        root.update()
+        bottom = root.winfo_rooty() + root.winfo_height()
+        require(app.open_button.winfo_rooty() + app.open_button.winfo_height() <= bottom, "keep launch action visible at minimum size")
+        require(app.status_label.winfo_rooty() + app.status_label.winfo_height() <= bottom, "keep status visible at minimum size")
+        root.geometry("980x720")
         root.update()
         from PIL import ImageGrab
         ImageGrab.grab().crop((root.winfo_rootx(), root.winfo_rooty(),

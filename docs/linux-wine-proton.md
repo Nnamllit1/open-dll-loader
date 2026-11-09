@@ -9,7 +9,7 @@ The project has two platform paths:
 | Automatic process refresh | Every two seconds | Not applicable to the Win32 UI | Depends on the Windows API implementation in that prefix |
 | Reload/unload | Cooperating host only | Console/watch mode | Cooperating host; GUI pipe support is runtime-dependent |
 
-The native Linux release contains the portable host and examples. It does not contain a native Linux process injector or GUI. Windows DLLs and Linux shared objects are not interchangeable.
+The native Linux host archive contains the portable host and examples. The separate Linux Proton package contains a native game picker and the Windows loader, which runs through Proton. Windows DLLs and Linux shared objects are not interchangeable.
 
 ## Open the loader in a running Steam game's prefix
 

@@ -293,9 +293,9 @@ def launch(game, arch="x64", payload_root=None, backend=None, log_path=None):
     if log_path:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("w", encoding="utf-8") as log:
-            return subprocess.Popen(backend.command(game, payload), env=env, cwd=root,
+            return subprocess.Popen(backend.command(game, payload), env=env, cwd=payload.parent,
                                     stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
-    return subprocess.Popen(backend.command(game, payload), env=env, cwd=root, stdin=subprocess.DEVNULL)
+    return subprocess.Popen(backend.command(game, payload), env=env, cwd=payload.parent, stdin=subprocess.DEVNULL)
 
 
 class Application:
@@ -307,7 +307,7 @@ class Application:
         self.launch_results, self.launching = queue.Queue(), False
         self.scanning, self.backend = False, find_backend()
         root.title("Open DLL Loader · Proton")
-        root.geometry("980x680")
+        root.geometry("980x720")
         root.minsize(780, 570)
         root.configure(bg="#eef2f7")
         style = ttk.Style(root)
@@ -315,8 +315,8 @@ class Application:
         style.configure("TFrame", background="#eef2f7")
         style.configure("TLabel", background="#eef2f7", foreground="#19283b", font=("Sans", 10))
         style.configure("Treeview", rowheight=34, font=("Sans", 10), background="white", fieldbackground="white")
-        style.configure("Treeview.Heading", font=("Sans", 10, "bold"), padding=8)
-        style.configure("TButton", padding=(14, 9), font=("Sans", 10))
+        style.configure("Treeview.Heading", font=("Sans", 10, "bold"), padding=8, background="#e4eaf2", foreground="#19283b")
+        style.configure("TButton", padding=(14, 9), font=("Sans", 10), background="#e1e8f2", foreground="#19283b", borderwidth=0)
         style.configure("Accent.TButton", background="#1967c7", foreground="white")
         top = tk.Frame(root, bg="#17283e", padx=26, pady=20)
         top.pack(fill="x")
@@ -325,9 +325,12 @@ class Application:
                  font=("Sans", 10), bg="#17283e", fg="#bed1e8").pack(anchor="w", pady=(6, 0))
         content = ttk.Frame(root, padding=(24, 16))
         content.pack(fill="both", expand=True)
+        content.columnconfigure(0, weight=1)
+        content.rowconfigure(1, weight=1)
         controls = ttk.Frame(content)
-        controls.pack(fill="x", pady=(0, 12))
+        controls.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         self.search, self.running_only, self.arch = tk.StringVar(), tk.BooleanVar(), tk.StringVar(value="x64")
+        ttk.Label(controls, text="Game / App ID").pack(side="left", padx=(0, 10))
         entry = ttk.Entry(controls, textvariable=self.search, font=("Sans", 11))
         entry.pack(side="left", fill="x", expand=True, padx=(0, 12))
         entry.insert(0, "")
@@ -335,8 +338,8 @@ class Application:
         ttk.Button(controls, text="Refresh", command=self.refresh).pack(side="left")
         self.search.trace_add("write", lambda *_: self.render())
         table_frame = ttk.Frame(content)
-        table_frame.pack(fill="both", expand=True)
-        self.table = ttk.Treeview(table_frame, columns=("state", "name", "appid", "steam"), show="headings", selectmode="browse")
+        table_frame.grid(row=1, column=0, sticky="nsew")
+        self.table = ttk.Treeview(table_frame, columns=("state", "name", "appid", "steam"), show="headings", selectmode="browse", height=8)
         for key, label, width in (("state", "Status", 110), ("name", "Game", 330), ("appid", "App ID", 100), ("steam", "Steam", 160)):
             self.table.heading(key, text=label)
             self.table.column(key, width=width, minwidth=75, stretch=key in ("name", "steam"))
@@ -348,15 +351,21 @@ class Application:
         self.table.bind("<<TreeviewSelect>>", lambda _: self.selection_changed())
         self.table.bind("<Double-1>", lambda _: self.open_loader())
         self.details = tk.StringVar(value="Select a game. Start it through Steam before opening the loader.")
-        ttk.Label(content, textvariable=self.details, wraplength=875).pack(fill="x", pady=(14, 12))
+        details_label = ttk.Label(content, textvariable=self.details, wraplength=875)
+        details_label.grid(row=2, column=0, sticky="ew", pady=(14, 12))
         actions = ttk.Frame(content)
-        actions.pack(fill="x")
+        actions.grid(row=3, column=0, sticky="ew")
         ttk.Label(actions, text="Target architecture").pack(side="left", padx=(0, 10))
         ttk.Combobox(actions, textvariable=self.arch, values=("x64", "x86"), width=7, state="readonly").pack(side="left")
         self.open_button = ttk.Button(actions, text="Open loader for this game", style="Accent.TButton", command=self.open_loader, state="disabled")
         self.open_button.pack(side="right")
         self.status = tk.StringVar(value="Discovering Steam libraries…")
-        ttk.Label(content, textvariable=self.status, wraplength=875).pack(fill="x", pady=(14, 0))
+        self.status_label = ttk.Label(content, textvariable=self.status, wraplength=875)
+        self.status_label.grid(row=4, column=0, sticky="ew", pady=(14, 0))
+        def resize(event):
+            details_label.configure(wraplength=max(400, event.width - 48))
+            self.status_label.configure(wraplength=max(400, event.width - 48))
+        content.bind("<Configure>", resize)
         root.bind("<F5>", lambda _: self.refresh())
         if auto_refresh:
             self.refresh()
