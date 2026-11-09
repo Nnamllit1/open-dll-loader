@@ -473,7 +473,7 @@ LRESULT CALLBACK procedure(HWND hwnd, UINT message, WPARAM w, LPARAM l) {
 }
 
 bool render_png(HWND hwnd, const std::filesystem::path& file) {
-    RECT r{}; GetClientRect(hwnd, &r); auto screen = GetDC(hwnd); auto dc = CreateCompatibleDC(screen);
+    RECT r{}; GetClientRect(hwnd, &r); layout(r.right, r.bottom); auto screen = GetDC(hwnd); auto dc = CreateCompatibleDC(screen);
     auto bitmap = CreateCompatibleBitmap(screen, r.right, r.bottom); auto old = SelectObject(dc, bitmap);
     // Render the client and each direct child at client coordinates. Asking a
     // framed top-level window to WM_PRINT its children offsets them by the
@@ -545,6 +545,9 @@ int ui_test(HWND hwnd, const std::filesystem::path& output) {
     for (auto size : {std::pair{1080, 800}, std::pair{1220, 860}}) {
         SetWindowPos(hwnd, nullptr, 0, 0, ui::px(size.first), ui::px(size.second), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         RECT client{}; GetClientRect(hwnd, &client);
+        // Hidden service-session windows do not reliably receive WM_SIZE.
+        // Exercise the same layout function with the actual client dimensions.
+        layout(client.right, client.bottom);
         for (auto h : {search, processList, queueList, logBox, GetDlgItem(window, LOAD)}) {
             RECT child{}; GetWindowRect(h, &child); MapWindowPoints(nullptr, hwnd, reinterpret_cast<POINT*>(&child), 2);
             require(child.left >= 0 && child.top >= 0 && child.right <= client.right && child.bottom <= client.bottom && child.bottom > child.top,
@@ -587,6 +590,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     auto hwnd = CreateWindowExW(0, wc.lpszClassName, (L"Open DLL Loader · " + odl::machine_name(odl::own_machine())).c_str(), WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                               CW_USEDEFAULT, CW_USEDEFAULT, ui::px(1220), ui::px(860), nullptr, nullptr, instance, nullptr);
     int result = 1;
+    if (hwnd) { RECT client{}; GetClientRect(hwnd, &client); layout(client.right, client.bottom); }
     if (hwnd && testMode) {
         try { result = ui_test(hwnd, preview); } catch (const std::wstring& error) {
             std::wofstream(std::filesystem::path(preview.wstring() + L".error.txt")) << error;
